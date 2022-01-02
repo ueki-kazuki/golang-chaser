@@ -6,7 +6,6 @@ import (
 	"log"
 	"net"
 	"net/textproto"
-	"os"
 	"strconv"
 	"strings"
 )
@@ -36,6 +35,7 @@ type Client struct {
 	port    int
 	address net.IP
 	name    string
+	GameSet bool
 }
 
 func NewClient(name string, host string, port int) (*Client, error) {
@@ -96,14 +96,13 @@ func (client *Client) order(command string) ([]int, error) {
 	case '0':
 		log.Println("GameSet!!")
 		client.conn.Close()
-		os.Exit(0)
+		client.GameSet = true
 		return nil, errors.New("GameSet")
 	case '1':
 		log.Printf("%v\n", response)
 	default:
 		log.Println("responce error")
 		return nil, errors.New("responce error")
-
 	}
 	if command != "gr" {
 		if err := client.conn.PrintfLine(""); err != nil {
