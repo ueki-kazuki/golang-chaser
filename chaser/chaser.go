@@ -114,9 +114,11 @@ func (client *Client) order(command string) ([]int, error) {
 
 func (client *Client) GetReady() ([]int, error) {
 	log.Println("GetReady")
-	if response, err := client.conn.ReadLine(); err != nil {
+	res, err := client.conn.ReadLine()
+	if err != nil {
 		return nil, err
-	} else if response[0] != '@' {
+	}
+	if res[0] != '@' {
 		log.Println("connection failed")
 		client.conn.Close()
 		return nil, errors.New("connection failed")
