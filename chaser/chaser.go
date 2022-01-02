@@ -3,27 +3,29 @@ package chaser
 import (
 	"errors"
 	"fmt"
+	"log"
 	"net"
 	"net/textproto"
+	"os"
 	"strconv"
 	"strings"
 )
 
 const (
-	GameSet = 0
-	TopLeft
-	Top
-	TopRight
+	GameSet = iota
+	UpLeft
+	Up
+	UpRight
 	Left
 	Center
 	Right
-	BottomLeft
-	Bottom
-	BottomRight
+	DownLeft
+	Down
+	DownRight
 )
 
 const (
-	Normal = 0
+	Normal = iota
 	ENEMY
 	BLOCK
 	ITEM
@@ -43,12 +45,12 @@ func NewClient(name string, host string, port int16) (*Client, error) {
 	}
 	conn, err := textproto.Dial("tcp", fmt.Sprintf("%s:%d", ip, port))
 	if err != nil {
-		fmt.Println(err)
+		log.Println(err)
 		return nil, err
 	}
 
 	if err := conn.PrintfLine("%v", name); err != nil {
-		fmt.Println(err)
+		log.Println(err)
 		return nil, err
 	}
 
@@ -63,7 +65,7 @@ func NewClient(name string, host string, port int16) (*Client, error) {
 func (client *Client) Close() {
 	if client.conn != nil {
 		if err := client.conn.Close(); err != nil {
-			fmt.Println(err)
+			log.Println(err)
 		}
 	}
 }
@@ -74,7 +76,7 @@ func strToIntArray(str string) []int {
 	for _, s := range sa {
 		num, err := strconv.Atoi(s)
 		if err != nil {
-			fmt.Println(err)
+			log.Println(err)
 			return ia
 		}
 		ia = append(ia, num)
@@ -92,25 +94,31 @@ func (client *Client) order(command string) ([]int, error) {
 	}
 	switch response[0] {
 	case '0':
-		fmt.Println("GameSet")
+		log.Println("GameSet!!")
 		client.conn.Close()
+		os.Exit(0)
 		return nil, errors.New("GameSet")
 	case '1':
-		fmt.Printf("%v", response)
+		log.Printf("%v\n", response)
 	default:
-		fmt.Println("responce error")
+		log.Println("responce error")
 		return nil, errors.New("responce error")
 
+	}
+	if command != "gr" {
+		if err := client.conn.PrintfLine(""); err != nil {
+			return nil, err
+		}
 	}
 	return strToIntArray(response[1:]), nil
 }
 
 func (client *Client) GetReady() ([]int, error) {
-	fmt.Println("GetReady")
+	log.Println("GetReady")
 	if response, err := client.conn.ReadLine(); err != nil {
 		return nil, err
 	} else if response[0] != '@' {
-		fmt.Println("connection failed")
+		log.Println("connection failed")
 		client.conn.Close()
 		return nil, errors.New("connection failed")
 	}
@@ -118,81 +126,81 @@ func (client *Client) GetReady() ([]int, error) {
 }
 
 func (client *Client) WalkUp() ([]int, error) {
-	fmt.Println("WalkUp")
+	log.Println("WalkUp")
 	return client.order("wu")
 }
 
 func (client *Client) WalkLeft() ([]int, error) {
-	fmt.Println("WalkLeft")
+	log.Println("WalkLeft")
 	return client.order("wl")
 }
 
 func (client *Client) WalkRight() ([]int, error) {
-	fmt.Println("WalkRight")
+	log.Println("WalkRight")
 	return client.order("wr")
 }
 
 func (client *Client) WalkDown() ([]int, error) {
-	fmt.Println("WalkDown")
+	log.Println("WalkDown")
 	return client.order("wd")
 }
 
 func (client *Client) PutUp() ([]int, error) {
-	fmt.Println("PutUp")
+	log.Println("PutUp")
 	return client.order("pu")
 }
 
 func (client *Client) PutLeft() ([]int, error) {
-	fmt.Println("PutLeft")
+	log.Println("PutLeft")
 	return client.order("pl")
 }
 
 func (client *Client) PutRight() ([]int, error) {
-	fmt.Println("PutRight")
+	log.Println("PutRight")
 	return client.order("pr")
 }
 
 func (client *Client) PutDown() ([]int, error) {
-	fmt.Println("PutDown")
+	log.Println("PutDown")
 	return client.order("pd")
 }
 
 func (client *Client) LookUp() ([]int, error) {
-	fmt.Println("LookUp")
+	log.Println("LookUp")
 	return client.order("lu")
 }
 
 func (client *Client) LookLeft() ([]int, error) {
-	fmt.Println("LookLeft")
+	log.Println("LookLeft")
 	return client.order("ll")
 }
 
 func (client *Client) LookRight() ([]int, error) {
-	fmt.Println("LookRight")
+	log.Println("LookRight")
 	return client.order("lr")
 }
 
 func (client *Client) LookDown() ([]int, error) {
-	fmt.Println("LookDown")
+	log.Println("LookDown")
 	return client.order("ld")
 }
 
 func (client *Client) SearchUp() ([]int, error) {
-	fmt.Println("SearchUp")
+	log.Println("SearchUp")
 	return client.order("su")
 }
 
 func (client *Client) SearchLeft() ([]int, error) {
-	fmt.Println("SearchLeft")
+	log.Println("SearchLeft")
 	return client.order("sl")
 }
 
 func (client *Client) SearchRight() ([]int, error) {
-	fmt.Println("SearchRight")
+	log.Println("SearchRight")
 	return client.order("sr")
 }
 
 func (client *Client) SearchDown() ([]int, error) {
-	fmt.Println("SearchDown")
+	log.Println("SearchDown")
 	return client.order("sd")
 }
