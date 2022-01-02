@@ -33,12 +33,12 @@ const (
 
 type Client struct {
 	conn    *textproto.Conn
-	port    int16
+	port    int
 	address net.IP
 	name    string
 }
 
-func NewClient(name string, host string, port int16) (*Client, error) {
+func NewClient(name string, host string, port int) (*Client, error) {
 	ip := net.ParseIP(host)
 	if ip == nil {
 		return nil, errors.New("ParseIP Error")

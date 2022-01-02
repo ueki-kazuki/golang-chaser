@@ -1,6 +1,7 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"io"
 
@@ -18,8 +19,13 @@ type CLI struct {
 }
 
 func (cli *CLI) Run(args []string) int {
+	port := flag.Int("p", 2009, "CHaser server port. [2009]")
+	host := flag.String("h", "127.0.0.1", "CHaser server hostname. [127.0.0.1]")
+	name := flag.String("n", "User1", "Client name. [User1]")
+	flag.Parse()
+
 	client, err := chaser.NewClient(
-		"Test", "127.0.0.1", 2009,
+		*name, *host, *port,
 	)
 	if err != nil {
 		fmt.Println(err)
