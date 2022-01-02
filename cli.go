@@ -33,7 +33,7 @@ func (cli *CLI) Run(args []string) int {
 	}
 	defer client.Close()
 
-	for {
+	for !client.GameSet {
 		value, err := client.GetReady()
 		if err != nil {
 			break
