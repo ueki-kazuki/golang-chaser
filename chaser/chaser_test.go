@@ -20,7 +20,15 @@ func TestClient_NewClient(t *testing.T) {
 		want   []int
 	}{
 		{
-			name: "NewClient",
+			name: "NewClient1",
+			fields: fields{
+				name: "TestUser",
+				host: "127.0.0.1",
+				port: 2009,
+			},
+		},
+		{
+			name: "NewClient2",
 			fields: fields{
 				name: "TestUser",
 				host: "127.0.0.1",
@@ -28,46 +36,121 @@ func TestClient_NewClient(t *testing.T) {
 			},
 		},
 	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			listened := make(chan bool)
+	psock, e := net.Listen("tcp", ":2009")
+	if e != nil {
+		log.Fatal(e)
+		return
+	}
+	go func() {
+		for {
 			// Run test server
-			go func() {
-				psock, e := net.Listen("tcp", ":2009")
-				if e != nil {
-					log.Fatal(e)
-					return
-				}
-				listened <- true
-
-				conn, e := psock.Accept()
-				if e != nil {
-					log.Fatal(e)
-					return
-				}
-
-				server := textproto.NewConn(conn)
-				defer server.Close()
-				got, err := server.ReadLine()
+			defer psock.Close()
+			conn, e := psock.Accept()
+			if e != nil {
+				log.Fatal(e)
+				return
+			}
+			go func(conn *textproto.Conn) {
+				_, err := conn.ReadLine()
 				if err != nil {
 					log.Fatal(err)
 				}
-				if !reflect.DeepEqual(tt.fields.name, got) {
-					t.Errorf("NewClient() = %v, want %v", got, tt.fields.name)
-				}
-			}()
-
-			for {
-				if <-listened {
-					break
-				}
-			}
-
+			}(textproto.NewConn(conn))
+		}
+	}()
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
 			client, err := NewClient(tt.fields.name, tt.fields.host, tt.fields.port)
 			if err != nil {
 				t.Error(err)
+				return
+			}
+			if !reflect.DeepEqual(tt.fields.name, client.name) {
+				t.Errorf("NewClient() = %v, want %v", client.name, tt.fields.name)
 			}
 			defer client.Close()
+		})
+	}
+}
+
+func TestClient_InvalidHostname(t *testing.T) {
+	type fields struct {
+		port int
+		host string
+		name string
+	}
+	tests := []struct {
+		name   string
+		fields fields
+		want   []int
+	}{
+		{
+			name: "example.com",
+			fields: fields{
+				name: "TestUser",
+				host: "example.com",
+				port: 2009,
+			},
+		},
+		{
+			name: "Invalid Port",
+			fields: fields{
+				name: "TestUser",
+				host: "127.0.0.1",
+				port: 1,
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := NewClient(tt.fields.name, tt.fields.host, tt.fields.port)
+			if err == nil {
+				t.Error(err)
+			}
+		})
+	}
+}
+
+func TestClient_IllegalResponse(t *testing.T) {
+	type fields struct {
+		port int
+		host string
+		name string
+	}
+	tests := []struct {
+		name    string
+		fields  fields
+		want    []int
+		gameset bool
+	}{
+		{
+			name: "IllegalResponse",
+			fields: fields{
+				name: "IllegalResponse",
+				host: "127.0.0.1",
+				port: 2009,
+			},
+			want:    nil,
+			gameset: false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			s, c := net.Pipe()
+			client := &Client{
+				conn: textproto.NewConn(c),
+			}
+			defer client.Close()
+			go func() {
+				conn := textproto.NewConn(s)
+				conn.PrintfLine("%s", "X")
+				conn.Close()
+			}()
+
+			_, err := client.GetReady()
+			if err == nil {
+				t.Error(err)
+			}
 		})
 	}
 }
