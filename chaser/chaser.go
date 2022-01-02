@@ -26,30 +26,6 @@ const (
 	ITEM
 )
 
-func itoa(i int8) string {
-	switch i {
-	case 1:
-		return "UpLeft"
-	case 2:
-		return "Up"
-	case 3:
-		return "UpRight"
-	case 4:
-		return "Left"
-	case 5:
-		return "Center"
-	case 6:
-		return "Right"
-	case 7:
-		return "DownLeft"
-	case 8:
-		return "Down"
-	case 9:
-		return "DownRight"
-	}
-	return ""
-}
-
 type Client struct {
 	conn    net.Conn
 	port    int16
