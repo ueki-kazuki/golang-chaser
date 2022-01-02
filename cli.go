@@ -23,7 +23,20 @@ func (cli *CLI) Run(args []string) int {
 	)
 	if err != nil {
 		fmt.Println(err)
+		return ExitCodeError
 	}
-	fmt.Println(client)
+	defer client.Close()
+
+	for {
+		value, err := client.GetReady()
+		if err != nil {
+			break
+		}
+		if value[chaser.Down] != chaser.BLOCK {
+			client.WalkDown()
+		} else {
+			client.WalkUp()
+		}
+	}
 	return ExitCodeOK
 }
