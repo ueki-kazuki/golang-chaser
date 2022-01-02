@@ -1,15 +1,16 @@
 package chaser
 
 import (
+	"log"
 	"net"
 	"net/textproto"
 	"reflect"
 	"testing"
 )
 
-func TestClient_GetReady(t *testing.T) {
+func TestClient_NewClient(t *testing.T) {
 	type fields struct {
-		port int16
+		port int
 		host string
 		name string
 	}
@@ -19,13 +20,88 @@ func TestClient_GetReady(t *testing.T) {
 		want   []int
 	}{
 		{
-			name: "Test",
+			name: "NewClient",
 			fields: fields{
-				name: "Test",
+				name: "TestUser",
 				host: "127.0.0.1",
 				port: 2009,
 			},
-			want: []int{0, 0, 0, 0, 0, 0, 0, 0, 0},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			listened := make(chan bool)
+			// Run test server
+			go func() {
+				psock, e := net.Listen("tcp", ":2009")
+				if e != nil {
+					log.Fatal(e)
+					return
+				}
+				listened <- true
+
+				conn, e := psock.Accept()
+				if e != nil {
+					log.Fatal(e)
+					return
+				}
+
+				server := textproto.NewConn(conn)
+				defer server.Close()
+				got, err := server.ReadLine()
+				if err != nil {
+					log.Fatal(err)
+				}
+				if !reflect.DeepEqual(tt.fields.name, got) {
+					t.Errorf("NewClient() = %v, want %v", got, tt.fields.name)
+				}
+			}()
+
+			for {
+				if <-listened {
+					break
+				}
+			}
+
+			client, err := NewClient(tt.fields.name, tt.fields.host, tt.fields.port)
+			if err != nil {
+				t.Error(err)
+			}
+			defer client.Close()
+		})
+	}
+}
+func TestClient_GetReady(t *testing.T) {
+	type fields struct {
+		port int
+		host string
+		name string
+	}
+	tests := []struct {
+		name    string
+		fields  fields
+		want    []int
+		gameset bool
+	}{
+		{
+			name: "GetReady",
+			fields: fields{
+				name: "GetReady",
+				host: "127.0.0.1",
+				port: 2009,
+			},
+			want:    []int{0, 0, 0, 0, 0, 0, 0, 0, 0},
+			gameset: false,
+		},
+		{
+			name: "GameOver",
+			fields: fields{
+				name: "GameOver",
+				host: "127.0.0.1",
+				port: 2009,
+			},
+			want:    nil,
+			gameset: true,
 		},
 	}
 	for _, tt := range tests {
@@ -45,7 +121,12 @@ func TestClient_GetReady(t *testing.T) {
 				}
 				switch res {
 				case "gr":
-					conn.PrintfLine("%v", "1000000000")
+					switch tt.name {
+					case "GetReady":
+						conn.PrintfLine("%v", "1000000000")
+					case "GameOver":
+						conn.PrintfLine("%v", "0000000000")
+					}
 				default:
 					t.Logf("%v", res)
 				}
@@ -53,8 +134,11 @@ func TestClient_GetReady(t *testing.T) {
 			}()
 
 			got, err := client.GetReady()
-			if err != nil {
+			if err != nil && err.Error() != "GameSet" {
 				t.Error(err)
+			}
+			if !reflect.DeepEqual(client.GameSet, tt.gameset) {
+				t.Errorf("Client.GetReady() = %v, want %v", client.GameSet, tt.gameset)
 			}
 			if !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("Client.GetReady() = %v, want %v", got, tt.want)
@@ -65,7 +149,7 @@ func TestClient_GetReady(t *testing.T) {
 
 func TestClient_Walk(t *testing.T) {
 	type fields struct {
-		port int16
+		port int
 		host string
 		name string
 	}
@@ -76,9 +160,9 @@ func TestClient_Walk(t *testing.T) {
 		f      func(client *Client) ([]int, error)
 	}{
 		{
-			name: "Test",
+			name: "WalkUp",
 			fields: fields{
-				name: "Test",
+				name: "WalkUp",
 				host: "127.0.0.1",
 				port: 2009,
 			},
@@ -86,9 +170,9 @@ func TestClient_Walk(t *testing.T) {
 			f:    func(client *Client) ([]int, error) { return client.WalkUp() },
 		},
 		{
-			name: "Test",
+			name: "WalkLeft",
 			fields: fields{
-				name: "Test",
+				name: "WalkLeft",
 				host: "127.0.0.1",
 				port: 2009,
 			},
@@ -96,9 +180,9 @@ func TestClient_Walk(t *testing.T) {
 			f:    func(client *Client) ([]int, error) { return client.WalkLeft() },
 		},
 		{
-			name: "Test",
+			name: "WalkRight",
 			fields: fields{
-				name: "Test",
+				name: "WalkRight",
 				host: "127.0.0.1",
 				port: 2009,
 			},
@@ -106,9 +190,9 @@ func TestClient_Walk(t *testing.T) {
 			f:    func(client *Client) ([]int, error) { return client.WalkRight() },
 		},
 		{
-			name: "Test",
+			name: "WalkDown",
 			fields: fields{
-				name: "Test",
+				name: "WalkDown",
 				host: "127.0.0.1",
 				port: 2009,
 			},
@@ -141,6 +225,9 @@ func TestClient_Walk(t *testing.T) {
 				default:
 					t.Logf("%v", res)
 				}
+				if _, err := conn.ReadLine(); err != nil {
+					t.Logf("%v", err)
+				}
 				conn.Close()
 			}()
 
@@ -149,7 +236,292 @@ func TestClient_Walk(t *testing.T) {
 				t.Error(err)
 			}
 			if !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("Client.GetReady() = %v, want %v", got, tt.want)
+				t.Errorf("Client.%s() = %v, want %v", tt.name, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestClient_Put(t *testing.T) {
+	type fields struct {
+		port int
+		host string
+		name string
+	}
+	tests := []struct {
+		name   string
+		fields fields
+		want   []int
+		f      func(client *Client) ([]int, error)
+	}{
+		{
+			name: "PutUp",
+			fields: fields{
+				name: "PutUp",
+				host: "127.0.0.1",
+				port: 2009,
+			},
+			want: []int{0, 2, 0, 0, 0, 0, 0, 0, 0},
+			f:    func(client *Client) ([]int, error) { return client.PutUp() },
+		},
+		{
+			name: "PutLeft",
+			fields: fields{
+				name: "PutLeft",
+				host: "127.0.0.1",
+				port: 2009,
+			},
+			want: []int{0, 0, 0, 2, 0, 0, 0, 0, 0},
+			f:    func(client *Client) ([]int, error) { return client.PutLeft() },
+		},
+		{
+			name: "PutRight",
+			fields: fields{
+				name: "PutRight",
+				host: "127.0.0.1",
+				port: 2009,
+			},
+			want: []int{0, 0, 0, 0, 0, 2, 0, 0, 0},
+			f:    func(client *Client) ([]int, error) { return client.PutRight() },
+		},
+		{
+			name: "PutDown",
+			fields: fields{
+				name: "PutDown",
+				host: "127.0.0.1",
+				port: 2009,
+			},
+			want: []int{0, 0, 0, 0, 0, 0, 0, 2, 0},
+			f:    func(client *Client) ([]int, error) { return client.PutDown() },
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			s, c := net.Pipe()
+			client := &Client{
+				conn: textproto.NewConn(c),
+			}
+			defer client.Close()
+			go func() {
+				conn := textproto.NewConn(s)
+				res, err := conn.ReadLine()
+				if err != nil {
+					t.Error(err)
+				}
+				switch res {
+				case "pu":
+					conn.PrintfLine("%v", "1020000000")
+				case "pl":
+					conn.PrintfLine("%v", "1000200000")
+				case "pr":
+					conn.PrintfLine("%v", "1000002000")
+				case "pd":
+					conn.PrintfLine("%v", "1000000020")
+				default:
+					t.Logf("%v", res)
+				}
+				if _, err := conn.ReadLine(); err != nil {
+					t.Logf("%v", err)
+				}
+				conn.Close()
+			}()
+
+			got, err := tt.f(client)
+			if err != nil {
+				t.Error(err)
+			}
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("Client.%s() = %v, want %v", tt.name, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestClient_Look(t *testing.T) {
+	type fields struct {
+		port int
+		host string
+		name string
+	}
+	tests := []struct {
+		name   string
+		fields fields
+		want   []int
+		f      func(client *Client) ([]int, error)
+	}{
+		{
+			name: "LookUp",
+			fields: fields{
+				name: "LookUp",
+				host: "127.0.0.1",
+				port: 2009,
+			},
+			want: []int{0, 2, 0, 0, 0, 0, 0, 0, 0},
+			f:    func(client *Client) ([]int, error) { return client.LookUp() },
+		},
+		{
+			name: "LookLeft",
+			fields: fields{
+				name: "LookLeft",
+				host: "127.0.0.1",
+				port: 2009,
+			},
+			want: []int{0, 0, 0, 2, 0, 0, 0, 0, 0},
+			f:    func(client *Client) ([]int, error) { return client.LookLeft() },
+		},
+		{
+			name: "LookRight",
+			fields: fields{
+				name: "LookRight",
+				host: "127.0.0.1",
+				port: 2009,
+			},
+			want: []int{0, 0, 0, 0, 0, 2, 0, 0, 0},
+			f:    func(client *Client) ([]int, error) { return client.LookRight() },
+		},
+		{
+			name: "LookDown",
+			fields: fields{
+				name: "LookDown",
+				host: "127.0.0.1",
+				port: 2009,
+			},
+			want: []int{0, 0, 0, 0, 0, 0, 0, 2, 0},
+			f:    func(client *Client) ([]int, error) { return client.LookDown() },
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			s, c := net.Pipe()
+			client := &Client{
+				conn: textproto.NewConn(c),
+			}
+			defer client.Close()
+			go func() {
+				conn := textproto.NewConn(s)
+				res, err := conn.ReadLine()
+				if err != nil {
+					t.Error(err)
+				}
+				switch res {
+				case "lu":
+					conn.PrintfLine("%v", "1020000000")
+				case "ll":
+					conn.PrintfLine("%v", "1000200000")
+				case "lr":
+					conn.PrintfLine("%v", "1000002000")
+				case "ld":
+					conn.PrintfLine("%v", "1000000020")
+				default:
+					t.Logf("%v", res)
+				}
+				if _, err := conn.ReadLine(); err != nil {
+					t.Logf("%v", err)
+				}
+				conn.Close()
+			}()
+
+			got, err := tt.f(client)
+			if err != nil {
+				t.Error(err)
+			}
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("Client.%s() = %v, want %v", tt.name, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestClient_Search(t *testing.T) {
+	type fields struct {
+		port int
+		host string
+		name string
+	}
+	tests := []struct {
+		name   string
+		fields fields
+		want   []int
+		f      func(client *Client) ([]int, error)
+	}{
+		{
+			name: "SearchUp",
+			fields: fields{
+				name: "SearchUp",
+				host: "127.0.0.1",
+				port: 2009,
+			},
+			want: []int{0, 2, 0, 0, 0, 0, 0, 0, 0},
+			f:    func(client *Client) ([]int, error) { return client.SearchUp() },
+		},
+		{
+			name: "SearchLeft",
+			fields: fields{
+				name: "SearchLeft",
+				host: "127.0.0.1",
+				port: 2009,
+			},
+			want: []int{0, 0, 0, 2, 0, 0, 0, 0, 0},
+			f:    func(client *Client) ([]int, error) { return client.SearchLeft() },
+		},
+		{
+			name: "SearchRight",
+			fields: fields{
+				name: "SearchRight",
+				host: "127.0.0.1",
+				port: 2009,
+			},
+			want: []int{0, 0, 0, 0, 0, 2, 0, 0, 0},
+			f:    func(client *Client) ([]int, error) { return client.SearchRight() },
+		},
+		{
+			name: "SearchDown",
+			fields: fields{
+				name: "SearchDown",
+				host: "127.0.0.1",
+				port: 2009,
+			},
+			want: []int{0, 0, 0, 0, 0, 0, 0, 2, 0},
+			f:    func(client *Client) ([]int, error) { return client.SearchDown() },
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			s, c := net.Pipe()
+			client := &Client{
+				conn: textproto.NewConn(c),
+			}
+			defer client.Close()
+			go func() {
+				conn := textproto.NewConn(s)
+				res, err := conn.ReadLine()
+				if err != nil {
+					t.Error(err)
+				}
+				switch res {
+				case "su":
+					conn.PrintfLine("%v", "1020000000")
+				case "sl":
+					conn.PrintfLine("%v", "1000200000")
+				case "sr":
+					conn.PrintfLine("%v", "1000002000")
+				case "sd":
+					conn.PrintfLine("%v", "1000000020")
+				default:
+					t.Logf("%v", res)
+				}
+				if _, err := conn.ReadLine(); err != nil {
+					t.Logf("%v", err)
+				}
+				conn.Close()
+			}()
+
+			got, err := tt.f(client)
+			if err != nil {
+				t.Error(err)
+			}
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("Client.%s() = %v, want %v", tt.name, got, tt.want)
 			}
 		})
 	}
