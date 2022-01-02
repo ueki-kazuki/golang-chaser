@@ -65,26 +65,18 @@ func (client *Client) Close() {
 	}
 }
 
-func (client *Client) order(command string) []int8 {
-	return []int8{0, 0, 0, 0, 0, 0, 0, 0, 0}
-}
-
-func (client *Client) GetReady() ([]int8, error) {
-	fmt.Println("GetReady")
-	buf := make([]byte, 0, 32)
-	n, err := client.conn.Read(buf)
+func strToIntArray(str string) []int {
+	sa := strings.Split(str, "")
+	ia := make([]int, 0, len(sa))
+	for _, s := range sa {
+		num, err := strconv.Atoi(s)
 	if err != nil {
-		return nil, err
+			fmt.Println(err)
+			return ia
 	}
-	if len(buf) < 1 {
-		fmt.Println("read empty buffer")
-		return nil, errors.New("read empty buffer")
+		ia = append(ia, num)
 	}
-	response := string(buf[:n])
-	if response[0] != '@' {
-		fmt.Println("connection failed")
-		client.conn.Close()
-		return nil, errors.New("connection failed")
+	return ia
 	}
 	if _, err := client.conn.Write([]byte("gr")); err != nil {
 		return nil, err
