@@ -105,7 +105,7 @@ func (client *Client) order(command string) ([]int, error) {
 		return nil, errors.New("responce error")
 	}
 	if command != "gr" {
-		if err := client.conn.PrintfLine(""); err != nil {
+		if err := client.conn.PrintfLine("#"); err != nil {
 			return nil, err
 		}
 	}
